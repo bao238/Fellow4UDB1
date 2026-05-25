@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../../../core/network/api_result.dart';
 import '../../domain/entities/account.dart';
 import '../../domain/repositories/accounts_repository.dart';
@@ -9,10 +11,21 @@ class AccountsRepositoryImpl implements AccountsRepository {
 
   final AccountsApiService _service;
 
+  static Map<String, dynamic> _toMap(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) return decoded;
+      } catch (_) {}
+    }
+    return {};
+  }
+
   @override
   Future<ApiResult<List<Account>>> getAccounts() async {
     final response = await _service.getAccounts();
-    final data = (response.data as Map<String, dynamic>?) ?? {};
+    final data = _toMap(response.data);
     final users = (data['users'] as List<dynamic>? ?? <dynamic>[])
         .whereType<Map<String, dynamic>>()
         .map(AccountModel.fromJson)
@@ -41,7 +54,7 @@ class AccountsRepositoryImpl implements AccountsRepository {
     ).toJson(password: password);
 
     final response = await _service.addAccount(payload);
-    final data = (response.data as Map<String, dynamic>?) ?? {};
+    final data = _toMap(response.data);
     final account = AccountModel.fromJson(data);
 
     return ApiResult<Account>(

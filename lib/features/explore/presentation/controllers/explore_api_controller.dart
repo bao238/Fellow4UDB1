@@ -92,7 +92,7 @@ class ExploreApiController {
     );
 
     final data = response.data;
-    final items = (data as List<dynamic>)
+    final items = (data is List ? data : <dynamic>[])
         .whereType<Map<String, dynamic>>()
         .map(_mapJourney)
         .toList();
@@ -111,7 +111,7 @@ class ExploreApiController {
     );
 
     final data = response.data;
-    final items = (data as List<dynamic>)
+    final items = (data is List ? data : <dynamic>[])
         .whereType<Map<String, dynamic>>()
         .map(_mapGuide)
         .toList();
@@ -130,7 +130,7 @@ class ExploreApiController {
     );
 
     final data = response.data;
-    final items = (data as List<dynamic>)
+    final items = (data is List ? data : <dynamic>[])
         .whereType<Map<String, dynamic>>()
         .map(_mapExperience)
         .toList();

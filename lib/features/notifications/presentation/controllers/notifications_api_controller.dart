@@ -42,7 +42,7 @@ class NotificationsApiController {
     );
 
     final data = response.data;
-    final items = (data as List<dynamic>)
+    final items = (data is List ? data : <dynamic>[])
         .whereType<Map<String, dynamic>>()
         .map(_mapNotification)
         .toList();

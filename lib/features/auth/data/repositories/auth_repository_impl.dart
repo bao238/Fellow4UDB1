@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../../../core/network/api_result.dart';
 import '../../domain/entities/auth_user.dart';
 import '../../domain/entities/registered_user.dart';
@@ -13,6 +15,18 @@ class AuthRepositoryImpl implements AuthRepository {
 
   final AuthApiService _service;
 
+  /// Parse response.data an toàn — handle Map, String JSON, null.
+  static Map<String, dynamic> _toMap(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) return decoded;
+      } catch (_) {}
+    }
+    return {};
+  }
+
   @override
   Future<ApiResult<AuthUser>> login({
     required String username,
@@ -22,7 +36,7 @@ class AuthRepositoryImpl implements AuthRepository {
       LoginRequestModel(username: username, password: password),
     );
 
-    final data = (response.data as Map<String, dynamic>?) ?? {};
+    final data = _toMap(response.data);
     final user = LoginResponseModel.fromJson(data);
 
     return ApiResult<AuthUser>(
@@ -54,7 +68,7 @@ class AuthRepositoryImpl implements AuthRepository {
       ),
     );
 
-    final data = (response.data as Map<String, dynamic>?) ?? {};
+    final data = _toMap(response.data);
     final user = RegisterResponseModel.fromJson(data);
 
     return ApiResult<RegisteredUser>(
@@ -66,9 +80,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   String _messageOrFallback(Map<String, dynamic> data) {
     final dynamic message = data['message'] ?? data['error'] ?? data['title'];
-    if (message is String && message.trim().isNotEmpty) {
-      return message;
-    }
+    if (message is String && message.trim().isNotEmpty) return message;
     return 'Login successful.';
   }
 }
