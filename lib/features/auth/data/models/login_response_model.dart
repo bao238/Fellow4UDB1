@@ -11,15 +11,36 @@ class LoginResponseModel extends AuthUser {
     super.refreshToken,
   });
 
-  factory LoginResponseModel.fromJson(Map<String, dynamic> json) {
+  factory LoginResponseModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+
+    final user =
+        json['user'] as Map<String, dynamic>? ?? {};
+
     return LoginResponseModel(
-      id: (json['id'] as num? ?? 0).toInt(),
-      username: (json['username'] ?? '').toString(),
-      email: (json['email'] ?? '').toString(),
-      firstName: (json['firstName'] ?? '').toString(),
-      lastName: (json['lastName'] ?? '').toString(),
-      accessToken: (json['accessToken'] ?? json['token'] ?? '').toString(),
-      refreshToken: json['refreshToken']?.toString(),
+      id: (user['id'] as num? ?? 0).toInt(),
+
+      username:
+          (user['username'] ?? '').toString(),
+
+      email:
+          (user['email'] ?? '').toString(),
+
+      firstName:
+          (user['firstName'] ?? '').toString(),
+
+      lastName:
+          (user['lastName'] ?? '').toString(),
+
+      accessToken:
+          (json['accessToken']
+                  ?? json['token']
+                  ?? '')
+              .toString(),
+
+      refreshToken:
+          json['refreshToken']?.toString(),
     );
   }
 }
