@@ -539,5 +539,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(port, () => {
   console.log(`Fellow4U API running at http://localhost:${port}`);
-  console.log(`Swagger UI: http://localhost:${port}/api/docs`);
+  console.log(`Swagger UI:  http://localhost:${port}/api/docs`);
+  console.log(`Health:      http://localhost:${port}/api/meta/health`);
+  console.log(`Routes:      http://localhost:${port}/api/meta/routes`);
 });
