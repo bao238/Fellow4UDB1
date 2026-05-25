@@ -1,0 +1,112 @@
+{
+  "info": {
+    "name": "Fellow4U Local API",
+    "_postman_id": "4f5f2df8-9b72-4b7e-94dc-6d72e8b29b09",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Meta - Health",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/meta/health"
+      }
+    },
+    {
+      "name": "Auth - Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"emilys\",\n  \"password\": \"emilyspass\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/login"
+      }
+    },
+    {
+      "name": "Auth - Register",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Bao\",\n  \"lastName\": \"Nguyen\",\n  \"email\": \"bao_new@example.com\",\n  \"username\": \"bao_new_2026\",\n  \"password\": \"bao123456\",\n  \"country\": \"Vietnam\",\n  \"role\": \"Traveler\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/register"
+      }
+    },
+    {
+      "name": "Users - List",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/users"
+      }
+    },
+    {
+      "name": "Journeys - List",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/TopJourneys"
+      }
+    },
+    {
+      "name": "Guides - List",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/BestGuides"
+      }
+    },
+    {
+      "name": "Experiences - List",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/TopExperiences"
+      }
+    },
+    {
+      "name": "Notifications - List",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/notifications"
+      }
+    },
+    {
+      "name": "SQL - Setup Script",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/setup/sql?download=1"
+      }
+    },
+    {
+      "name": "SQL - Auth Script",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/setup/sql/auth?download=1"
+      }
+    },
+    {
+      "name": "SQL - Notifications Script",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/setup/sql/notifications?download=1"
+      }
+    }
+  ]
+}

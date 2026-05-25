@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: fellow4u-api
+    env: node
+    rootDir: api
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: SQL_CONNECTION_STRING
+        sync: false
+      - key: SQL_ENCRYPT
+        value: true
+      - key: SQL_TRUST_SERVER_CERTIFICATE
+        value: true
+
+  - type: static
+    name: fellow4u-web
+    env: static
+    rootDir: .
+    buildCommand: flutter pub get && flutter build web --release --dart-define=API_BASE_URL=https://fellow4u-api.onrender.com --dart-define=AUTH_BASE_URL=https://fellow4u-api.onrender.com
+    staticPublishPath: build/web
+    autoDeploy: true

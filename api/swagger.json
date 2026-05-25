@@ -1,0 +1,497 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Fellow4U API",
+    "description": "REST API cho ứng dụng du lịch Fellow4U. Backend Node.js kết nối SQL Server (GearHost cloud).\n\n**Demo accounts:**\n- `emilys` / `emilyspass`\n- `bao12345` / `bao123456`\n- `admin` / `admin123`",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Fellow4U"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    { "name": "Meta", "description": "Kiểm tra trạng thái và danh sách route" },
+    { "name": "Auth", "description": "Đăng nhập và đăng ký tài khoản" },
+    { "name": "TopJourneys", "description": "Quản lý hành trình du lịch (CRUD)" },
+    { "name": "BestGuides", "description": "Danh sách hướng dẫn viên" },
+    { "name": "TopExperiences", "description": "Trải nghiệm nổi bật" },
+    { "name": "Notifications", "description": "Thông báo hệ thống" },
+    { "name": "Users", "description": "Quản lý tài khoản người dùng" },
+    { "name": "Setup", "description": "SQL setup scripts" }
+  ],
+  "paths": {
+    "/api/meta/health": {
+      "get": {
+        "tags": ["Meta"],
+        "summary": "Kiểm tra trạng thái hệ thống",
+        "description": "Kiểm tra API server đang chạy và kết nối SQL Server thành công",
+        "responses": {
+          "200": {
+            "description": "Server và database hoạt động bình thường",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" },
+                "example": {
+                  "status": "ok",
+                  "database": "Fellow4UDB",
+                  "time": "2026-05-25T08:00:00.000Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/meta/routes": {
+      "get": {
+        "tags": ["Meta"],
+        "summary": "Lấy danh sách tất cả route",
+        "description": "Trả về toàn bộ endpoint đang được server hỗ trợ",
+        "responses": {
+          "200": {
+            "description": "Danh sách route",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RoutesResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Đăng nhập",
+        "description": "Xác thực tài khoản bằng username (hoặc email) và mật khẩu. Trả về access token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" },
+              "examples": {
+                "by_username": {
+                  "summary": "Đăng nhập bằng username",
+                  "value": { "username": "emilys", "password": "emilyspass" }
+                },
+                "by_email": {
+                  "summary": "Đăng nhập bằng email",
+                  "value": { "email": "emily.johnson@example.com", "password": "emilyspass" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đăng nhập thành công",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          },
+          "400": { "description": "Thiếu username/email hoặc password", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "401": { "description": "Sai thông tin đăng nhập", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" }, "example": { "message": "Invalid credentials" } } } }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Đăng ký tài khoản mới",
+        "description": "Tạo tài khoản mới trong bảng dbo.Users. Kiểm tra trùng username và email.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterRequest" },
+              "example": {
+                "firstName": "Nguyen",
+                "lastName": "Van A",
+                "email": "vana@example.com",
+                "username": "vana2026",
+                "password": "vana123456",
+                "country": "Vietnam",
+                "role": "Traveler"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Tạo tài khoản thành công", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserResponse" } } } },
+          "400": { "description": "Thiếu trường bắt buộc", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "description": "Username hoặc email đã tồn tại", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" }, "example": { "message": "Username already exists" } } } }
+        }
+      }
+    },
+    "/api/TopJourneys": {
+      "get": {
+        "tags": ["TopJourneys"],
+        "summary": "Lấy danh sách hành trình",
+        "parameters": [
+          { "name": "_limit", "in": "query", "description": "Giới hạn số bản ghi trả về", "schema": { "type": "integer", "example": 5 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách hành trình", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Journey" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["TopJourneys"],
+        "summary": "Tạo hành trình mới",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/JourneyRequest" },
+              "example": { "userId": 1, "title": "Hue Ancient Journey", "body": "A 2-day historical trip in Hue." }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Tạo thành công", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Journey" } } } },
+          "400": { "description": "Thiếu trường bắt buộc", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/TopJourneys/{id}": {
+      "get": {
+        "tags": ["TopJourneys"],
+        "summary": "Lấy chi tiết hành trình",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }, "example": 1 }],
+        "responses": {
+          "200": { "description": "Chi tiết hành trình", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Journey" } } } },
+          "404": { "description": "Không tìm thấy", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      },
+      "put": {
+        "tags": ["TopJourneys"],
+        "summary": "Cập nhật toàn bộ hành trình",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/JourneyRequest" } } } },
+        "responses": {
+          "200": { "description": "Cập nhật thành công", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Journey" } } } },
+          "404": { "description": "Không tìm thấy", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      },
+      "patch": {
+        "tags": ["TopJourneys"],
+        "summary": "Cập nhật một phần hành trình",
+        "description": "Chỉ cần gửi các trường muốn thay đổi. Trường không gửi sẽ giữ nguyên.",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/JourneyPatchRequest" },
+              "example": { "title": "Updated Title" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Cập nhật thành công", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Journey" } } } },
+          "404": { "description": "Không tìm thấy", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["TopJourneys"],
+        "summary": "Xóa hành trình",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Xóa thành công", "content": { "application/json": { "example": { "message": "Deleted post successfully." } } } },
+          "404": { "description": "Không tìm thấy", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/BestGuides": {
+      "get": {
+        "tags": ["BestGuides"],
+        "summary": "Lấy danh sách hướng dẫn viên",
+        "parameters": [{ "name": "_limit", "in": "query", "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Danh sách hướng dẫn viên", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Guide" } } } } } }
+      }
+    },
+    "/api/BestGuides/{id}": {
+      "get": {
+        "tags": ["BestGuides"],
+        "summary": "Lấy chi tiết hướng dẫn viên",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Chi tiết hướng dẫn viên", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Guide" } } } },
+          "404": { "description": "Không tìm thấy", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/TopExperiences": {
+      "get": {
+        "tags": ["TopExperiences"],
+        "summary": "Lấy danh sách trải nghiệm nổi bật",
+        "parameters": [{ "name": "_limit", "in": "query", "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Danh sách trải nghiệm", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Experience" } } } } } }
+      }
+    },
+    "/api/TopExperiences/{id}": {
+      "get": {
+        "tags": ["TopExperiences"],
+        "summary": "Lấy chi tiết trải nghiệm",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Chi tiết trải nghiệm", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Experience" } } } },
+          "404": { "description": "Không tìm thấy", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Lấy danh sách thông báo",
+        "description": "Trả về thông báo sắp xếp mới nhất trước (ORDER BY Id DESC)",
+        "parameters": [{ "name": "_limit", "in": "query", "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Danh sách thông báo", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Notification" } } } } } }
+      }
+    },
+    "/api/notifications/{id}": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Lấy chi tiết thông báo",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Chi tiết thông báo", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Notification" } } } },
+          "404": { "description": "Không tìm thấy", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Lấy danh sách người dùng",
+        "description": "Trả về danh sách tài khoản (không bao gồm password)",
+        "parameters": [{ "name": "_limit", "in": "query", "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Danh sách người dùng", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UsersListResponse" } } } } }
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Lấy chi tiết người dùng",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Chi tiết người dùng", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserResponse" } } } },
+          "404": { "description": "Không tìm thấy", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/users/add": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Thêm người dùng mới",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AddUserRequest" },
+              "example": { "firstName": "Nguyen", "lastName": "Van A", "email": "vana@example.com", "username": "vana2026", "password": "vana123456" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Tạo thành công", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserResponse" } } } },
+          "422": { "description": "Username hoặc email đã tồn tại", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/setup/sql": {
+      "get": {
+        "tags": ["Setup"],
+        "summary": "Xem SQL setup script",
+        "parameters": [{ "name": "download", "in": "query", "description": "Truyền '1' để tải file", "schema": { "type": "string", "enum": ["1", "true"] } }],
+        "responses": { "200": { "description": "Nội dung SQL script", "content": { "text/plain": { "schema": { "type": "string" } } } } }
+      }
+    },
+    "/api/setup/sql/auth": {
+      "get": {
+        "tags": ["Setup"],
+        "summary": "Xem SQL auth script",
+        "parameters": [{ "name": "download", "in": "query", "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Nội dung SQL auth script", "content": { "text/plain": { "schema": { "type": "string" } } } } }
+      }
+    },
+    "/api/setup/sql/notifications": {
+      "get": {
+        "tags": ["Setup"],
+        "summary": "Xem SQL notifications script",
+        "parameters": [{ "name": "download", "in": "query", "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Nội dung SQL notifications script", "content": { "text/plain": { "schema": { "type": "string" } } } } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok" },
+          "database": { "type": "string", "example": "Fellow4UDB" },
+          "time": { "type": "string", "format": "date-time" }
+        }
+      },
+      "RoutesResponse": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "database": { "type": "string" },
+          "sqlSetupPath": { "type": "string" },
+          "endpoints": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "username": { "type": "string", "example": "emilys" },
+          "email": { "type": "string", "example": "emily.johnson@example.com" },
+          "password": { "type": "string", "example": "emilyspass" }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string", "example": "Login successful." },
+          "accessToken": { "type": "string" },
+          "refreshToken": { "type": "string" },
+          "id": { "type": "integer", "example": 1 },
+          "username": { "type": "string", "example": "emilys" },
+          "email": { "type": "string" },
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" },
+          "fullName": { "type": "string" }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["firstName", "lastName", "email", "username", "password"],
+        "properties": {
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" },
+          "email": { "type": "string" },
+          "username": { "type": "string" },
+          "password": { "type": "string" },
+          "country": { "type": "string", "default": "" },
+          "role": { "type": "string", "default": "Traveler", "enum": ["Traveler", "Guide", "Admin"] }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" },
+          "email": { "type": "string" },
+          "username": { "type": "string" },
+          "country": { "type": "string" },
+          "role": { "type": "string" }
+        }
+      },
+      "UsersListResponse": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "firstName": { "type": "string" },
+                "lastName": { "type": "string" },
+                "email": { "type": "string" },
+                "username": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "AddUserRequest": {
+        "type": "object",
+        "required": ["firstName", "lastName", "email", "username", "password"],
+        "properties": {
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" },
+          "email": { "type": "string" },
+          "username": { "type": "string" },
+          "password": { "type": "string" }
+        }
+      },
+      "Journey": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "userId": { "type": "integer", "example": 1 },
+          "title": { "type": "string", "example": "Da Nang - Ba Na - Hoi An" },
+          "body": { "type": "string", "example": "Classic 3-day journey." }
+        }
+      },
+      "JourneyRequest": {
+        "type": "object",
+        "required": ["userId", "title", "body"],
+        "properties": {
+          "userId": { "type": "integer" },
+          "title": { "type": "string" },
+          "body": { "type": "string" }
+        }
+      },
+      "JourneyPatchRequest": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "integer" },
+          "title": { "type": "string" },
+          "body": { "type": "string" }
+        }
+      },
+      "Guide": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string", "example": "Tuan Tran" },
+          "email": { "type": "string" },
+          "city": { "type": "string", "example": "Da Nang" },
+          "phone": { "type": "string" },
+          "address": {
+            "type": "object",
+            "properties": { "city": { "type": "string" } }
+          }
+        }
+      },
+      "Experience": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "userId": { "type": "integer" },
+          "title": { "type": "string", "example": "2 Hour Bicycle Tour in Hoi An" }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "actorName": { "type": "string" },
+          "actorAvatar": { "type": "string" },
+          "message": { "type": "string" },
+          "date": { "type": "string" },
+          "accentColor": { "type": "string", "example": "#3F8CFF" },
+          "badgeIcon": { "type": "string", "example": "rate_review" },
+          "showReviewButton": { "type": "boolean" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" }
+        }
+      }
+    }
+  }
+}
