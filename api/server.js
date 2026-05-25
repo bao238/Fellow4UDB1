@@ -194,6 +194,8 @@ function createToken(username) {
 }
 
 // ─────────────────────────────────────────────
+// LOGIN
+// ─────────────────────────────────────────────
 
 async function handleLogin(req, res) {
 
@@ -301,6 +303,164 @@ async function handleLogin(req, res) {
 }
 
 // ─────────────────────────────────────────────
+// REGISTER
+// ─────────────────────────────────────────────
+
+async function handleRegister(req, res) {
+
+  const body =
+    await readJsonBody(req);
+
+  const firstName =
+    body.firstName;
+
+  const lastName =
+    body.lastName;
+
+  const email =
+    body.email;
+
+  const username =
+    body.username;
+
+  const password =
+    body.password;
+
+  const country =
+    body.country;
+
+  const role =
+    body.role || "Traveler";
+
+  if (
+    !firstName ||
+    !lastName ||
+    !email ||
+    !username ||
+    !password
+  ) {
+
+    return sendJson(res, 400, {
+      message:
+        "Missing required fields"
+    });
+
+  }
+
+  const pool =
+    await poolPromise;
+
+  const existingUser =
+    await pool.request()
+
+      .input(
+        "email",
+        sql.NVarChar(255),
+        email
+      )
+
+      .input(
+        "username",
+        sql.NVarChar(255),
+        username
+      )
+
+      .query(`
+        SELECT TOP (1) *
+        FROM dbo.Users
+        WHERE
+          Email = @email
+          OR Username = @username
+      `);
+
+  if (
+    existingUser.recordset.length > 0
+  ) {
+
+    return sendJson(res, 409, {
+      message:
+        "Email or username already exists"
+    });
+
+  }
+
+  await pool.request()
+
+    .input(
+      "firstName",
+      sql.NVarChar(255),
+      firstName
+    )
+
+    .input(
+      "lastName",
+      sql.NVarChar(255),
+      lastName
+    )
+
+    .input(
+      "email",
+      sql.NVarChar(255),
+      email
+    )
+
+    .input(
+      "username",
+      sql.NVarChar(255),
+      username
+    )
+
+    .input(
+      "password",
+      sql.NVarChar(255),
+      password
+    )
+
+    .input(
+      "country",
+      sql.NVarChar(255),
+      country
+    )
+
+    .input(
+      "role",
+      sql.NVarChar(100),
+      role
+    )
+
+    .query(`
+      INSERT INTO dbo.Users
+      (
+        FirstName,
+        LastName,
+        Email,
+        Username,
+        Password,
+        Country,
+        Role
+      )
+      VALUES
+      (
+        @firstName,
+        @lastName,
+        @email,
+        @username,
+        @password,
+        @country,
+        @role
+      )
+    `);
+
+  return sendJson(res, 201, {
+
+    message:
+      "Register successful"
+
+  });
+
+}
+
+// ─────────────────────────────────────────────
 
 async function handleHealthCheck(res) {
 
@@ -330,7 +490,6 @@ async function handleRequest(req, res) {
 
   setCorsHeaders(res);
 
-  // OPTIONS
   if (req.method === "OPTIONS") {
 
     res.writeHead(204);
@@ -351,9 +510,7 @@ async function handleRequest(req, res) {
       ? urlObj.pathname.replace(/\/+$/, "")
       : urlObj.pathname;
 
-  // ─────────────────────────────────────
   // SWAGGER UI
-  // ─────────────────────────────────────
 
   if (
     req.method === "GET" &&
@@ -377,9 +534,7 @@ async function handleRequest(req, res) {
 
   }
 
-  // ─────────────────────────────────────
   // SWAGGER JSON
-  // ─────────────────────────────────────
 
   if (
     req.method === "GET" &&
@@ -416,15 +571,12 @@ async function handleRequest(req, res) {
 
   }
 
-  // ─────────────────────────────────────
   // HEALTH
-  // ─────────────────────────────────────
 
   if (
     pathname === "/api/meta/health"
   ) {
 
-    // UptimeRobot dùng HEAD
     if (req.method === "HEAD") {
 
       res.writeHead(200);
@@ -435,7 +587,6 @@ async function handleRequest(req, res) {
 
     }
 
-    // Browser/API dùng GET
     if (req.method === "GET") {
 
       await handleHealthCheck(res);
@@ -446,9 +597,24 @@ async function handleRequest(req, res) {
 
   }
 
-  // ─────────────────────────────────────
+  // REGISTER
+
+  if (
+    req.method === "POST" &&
+    (
+      pathname === "/api/auth/register"
+      ||
+      pathname === "/auth/register"
+    )
+  ) {
+
+    await handleRegister(req, res);
+
+    return;
+
+  }
+
   // LOGIN
-  // ─────────────────────────────────────
 
   if (
     req.method === "POST" &&
@@ -465,9 +631,7 @@ async function handleRequest(req, res) {
 
   }
 
-  // ─────────────────────────────────────
   // ROOT
-  // ─────────────────────────────────────
 
   if (
     req.method === "GET" &&
@@ -489,9 +653,7 @@ async function handleRequest(req, res) {
 
   }
 
-  // ─────────────────────────────────────
   // 404
-  // ─────────────────────────────────────
 
   sendJson(res, 404, {
 
