@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 enum ApiErrorType {
   unauthorized,
@@ -53,9 +53,7 @@ class ApiException implements Exception {
       );
     }
 
-    final sourceError = error.error;
-    if (sourceError is SocketException ||
-        error.type == DioExceptionType.connectionError) {
+    if (error.type == DioExceptionType.connectionError) {
       final host = error.requestOptions.uri.host.toLowerCase();
       final isLocalHost =
           host == 'localhost' || host == '127.0.0.1' || host.endsWith('.local');
@@ -65,6 +63,22 @@ class ApiException implements Exception {
             ? 'Cannot connect to local API server. Make sure the backend is running.'
             : 'Cannot connect to the API server. Please check the deployment URL.',
       );
+    }
+
+    // Trên mobile/desktop: kiểm tra SocketException qua error.error
+    if (!kIsWeb) {
+      final sourceError = error.error;
+      if (sourceError != null && sourceError.toString().contains('SocketException')) {
+        final host = error.requestOptions.uri.host.toLowerCase();
+        final isLocalHost =
+            host == 'localhost' || host == '127.0.0.1' || host.endsWith('.local');
+        return ApiException(
+          type: ApiErrorType.network,
+          message: isLocalHost
+              ? 'Cannot connect to local API server. Make sure the backend is running.'
+              : 'Cannot connect to the API server. Please check the deployment URL.',
+        );
+      }
     }
 
     return ApiException(
@@ -80,6 +94,14 @@ class ApiException implements Exception {
       if (rawMessage is String && rawMessage.trim().isNotEmpty) {
         return rawMessage;
       }
+    }
+    // data là String (HTML hoặc plain text từ server lỗi)
+    if (data is String && data.trim().isNotEmpty) {
+      if (data.trimLeft().startsWith('<')) {
+        return 'Server returned an unexpected response.';
+      }
+      final trimmed = data.trim();
+      return trimmed.length > 200 ? '${trimmed.substring(0, 200)}...' : trimmed;
     }
     return null;
   }
