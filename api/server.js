@@ -2,6 +2,7 @@ const http = require("http");
 const fs = require("fs/promises");
 const path = require("path");
 const { URL } = require("url");
+const crypto = require("crypto");
 
 const { poolPromise, sql } = require("./db");
 
@@ -11,6 +12,63 @@ const sqlSetupPath = path.join(__dirname, "sql", "fellow4udb_setup.sql");
 const authSqlSetupPath = path.join(__dirname, "sql", "fellow4udb_auth_login.sql");
 const notificationsSqlSetupPath = path.join(__dirname, "sql", "fellow4udb_notifications_api.sql");
 const swaggerJsonPath = path.join(__dirname, "swagger.json");
+
+// JWT secret — dùng env var khi production
+const JWT_SECRET = process.env.JWT_SECRET || "fellow4u_secret_key_2026";
+const JWT_EXPIRES_IN = 60 * 60 * 24; // 24 giờ (giây)
+
+// ── JWT helpers (không cần package) ──────────────────────────────────────────
+
+function base64urlEncode(str) {
+  return Buffer.from(str).toString("base64url");
+}
+
+function base64urlDecode(str) {
+  return Buffer.from(str, "base64url").toString("utf-8");
+}
+
+function signJwt(payload) {
+  const header = base64urlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const body   = base64urlEncode(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + JWT_EXPIRES_IN }));
+  const sig    = crypto.createHmac("sha256", JWT_SECRET).update(`${header}.${body}`).digest("base64url");
+  return `${header}.${body}.${sig}`;
+}
+
+function verifyJwt(token) {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const [header, body, sig] = parts;
+    const expected = crypto.createHmac("sha256", JWT_SECRET).update(`${header}.${body}`).digest("base64url");
+    if (sig !== expected) return null;
+    const payload = JSON.parse(base64urlDecode(body));
+    if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) return null; // hết hạn
+    return payload;
+  } catch (_) {
+    return null;
+  }
+}
+
+function extractBearerToken(req) {
+  const auth = req.headers["authorization"] || "";
+  if (!auth.startsWith("Bearer ")) return null;
+  return auth.slice(7).trim();
+}
+
+// Middleware kiểm tra JWT — trả 401 nếu không hợp lệ
+function requireAuth(req, res) {
+  const token = extractBearerToken(req);
+  if (!token) {
+    sendJson(res, 401, { message: "Authorization token required" });
+    return null;
+  }
+  const payload = verifyJwt(token);
+  if (!payload) {
+    sendJson(res, 401, { message: "Invalid or expired token" });
+    return null;
+  }
+  return payload; // trả payload nếu hợp lệ
+}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -125,10 +183,13 @@ async function handleLogin(req, res) {
   const user = result.recordset[0];
   if (!user) return sendJson(res, 401, { message: "Invalid credentials" });
 
+  const accessToken  = signJwt({ id: user.Id, username: user.Username, role: user.Role || "Traveler" });
+  const refreshToken = signJwt({ id: user.Id, username: user.Username, type: "refresh" });
+
   return sendJson(res, 200, {
     message: "Login successful.",
-    accessToken: createToken(user.Username),
-    refreshToken: createToken(`${user.Username}-refresh`),
+    accessToken,
+    refreshToken,
     id: user.Id,
     username: user.Username,
     email: user.Email,
@@ -478,25 +539,32 @@ async function handleRequest(req, res) {
   if (req.method === "POST" && (pathname === "/api/auth/login"    || pathname === "/auth/login"))    { await handleLogin(req, res); return; }
   if (req.method === "POST" && (pathname === "/api/auth/register" || pathname === "/auth/register")) { await handleRegister(req, res); return; }
 
-  // Users
-  if (req.method === "GET"  && (pathname === "/api/users" || pathname === "/users")) { await handleListUsers(res, urlObj); return; }
-  if (req.method === "POST" && (pathname === "/api/users/add" || pathname === "/users/add")) { await handleAddUser(req, res); return; }
+  // Users — GET list và add cần auth
+  if (req.method === "GET"  && (pathname === "/api/users" || pathname === "/users")) {
+    if (!requireAuth(req, res)) return;
+    await handleListUsers(res, urlObj); return;
+  }
+  if (req.method === "POST" && (pathname === "/api/users/add" || pathname === "/users/add")) {
+    if (!requireAuth(req, res)) return;
+    await handleAddUser(req, res); return;
+  }
   const userRoute = parseEntityPath(pathname, "/api/users");
   if (req.method === "GET" && userRoute.matches && userRoute.id !== null) {
+    if (!requireAuth(req, res)) return;
     if (Number.isNaN(userRoute.id)) { sendJson(res, 400, { message: "Invalid user id" }); return; }
     await handleUserDetail(res, userRoute.id); return;
   }
 
-  // TopJourneys
+  // TopJourneys — GET public, write cần auth
   const jRoute = parseEntityPath(pathname, "/api/TopJourneys");
   if (jRoute.matches) {
     if (jRoute.id !== null && Number.isNaN(jRoute.id)) { sendJson(res, 400, { message: "Invalid journey id" }); return; }
     if (req.method === "GET"    && jRoute.id === null)  { await handleListJourneys(res, urlObj); return; }
     if (req.method === "GET"    && jRoute.id !== null)  { await handleJourneyDetail(res, jRoute.id); return; }
-    if (req.method === "POST"   && jRoute.id === null)  { await handleCreateJourney(req, res); return; }
-    if (req.method === "PUT"    && jRoute.id !== null)  { await handleUpdateJourney(req, res, jRoute.id, false); return; }
-    if (req.method === "PATCH"  && jRoute.id !== null)  { await handleUpdateJourney(req, res, jRoute.id, true); return; }
-    if (req.method === "DELETE" && jRoute.id !== null)  { await handleDeleteJourney(res, jRoute.id); return; }
+    if (req.method === "POST"   && jRoute.id === null)  { if (!requireAuth(req, res)) return; await handleCreateJourney(req, res); return; }
+    if (req.method === "PUT"    && jRoute.id !== null)  { if (!requireAuth(req, res)) return; await handleUpdateJourney(req, res, jRoute.id, false); return; }
+    if (req.method === "PATCH"  && jRoute.id !== null)  { if (!requireAuth(req, res)) return; await handleUpdateJourney(req, res, jRoute.id, true); return; }
+    if (req.method === "DELETE" && jRoute.id !== null)  { if (!requireAuth(req, res)) return; await handleDeleteJourney(res, jRoute.id); return; }
   }
 
   // BestGuides
